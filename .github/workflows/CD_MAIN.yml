@@ -8,17 +8,15 @@ jobs:
   deploy:
     name: Deploy to Multiple EC2 Instances
     runs-on: ubuntu-latest
+    needs: []
+
     strategy:
       matrix:
         instance:
-          - host: ${{ secrets.EC2_HOST_1 }}
-            name: instance-1
-          - host: ${{ secrets.EC2_HOST_2 }}
-            name: instance-2
-          - host: ${{ secrets.EC2_HOST_3 }}
-            name: instance-3
-          - host: ${{ secrets.EC2_HOST_4 }}
-            name: instance-4
+          - { host: ${{ secrets.EC2_HOST_1 }}, name: instance-1 }
+          - { host: ${{ secrets.EC2_HOST_2 }}, name: instance-2 }
+          - { host: ${{ secrets.EC2_HOST_3 }}, name: instance-3 }
+          - { host: ${{ secrets.EC2_HOST_4 }}, name: instance-4 }
 
     steps:
     # Verificar que los secretos requeridos están configurados

@@ -22,6 +22,7 @@ jobs:
         echo "commit_sha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
         # Crear una etiqueta de versión personalizada
         echo "version_tag=$(date +'%Y%m%d')-${{ github.run_number }}" >> $GITHUB_ENV
+
     # 3. Log in en DockerHub
     - name: Log in to DockerHub
       uses: docker/login-action@v2
@@ -43,19 +44,31 @@ jobs:
     name: Deploy to QA Instances
     runs-on: ubuntu-latest
     needs: build-and-push
-    strategy:
-      matrix:
-        instance:
-          - host: ${{ secrets.QA_HOST_1 }}
-            name: qa-instance-1
-          - host: ${{ secrets.QA_HOST_2 }}
-            name: qa-instance-2
 
     steps:
-    - name: Deploy to QA - ${{ matrix.instance.name }}
+    # Despliegue en la primera instancia
+    - name: Deploy to QA Instance 1
       uses: appleboy/ssh-action@v0.1.6
       with:
-        host: ${{ matrix.instance.host }}
+        host: ${{ secrets.QA_HOST_1 }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY_1 }}
+        port: 22
+        script: |
+          sudo yum update -y
+          sudo yum install -y docker
+          sudo service docker start
+          sudo usermod -a -G docker ec2-user
+          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
+          sudo docker ps -q --filter "name=tercera-pagina" | grep -q . && \
+            sudo docker stop tercera-pagina && sudo docker rm tercera-pagina || true
+          sudo docker run -d --name tercera-pagina -p 80:80 ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
+
+    # Despliegue en la segunda instancia
+    - name: Deploy to QA Instance 2
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.QA_HOST_2 }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY_1 }}
         port: 22
