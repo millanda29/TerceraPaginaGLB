@@ -18,9 +18,7 @@ jobs:
     - name: Extract version from Git
       id: vars
       run: |
-        # Obtener el hash corto del commit
         echo "commit_sha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        # Crear una etiqueta de versión personalizada
         echo "version_tag=$(date +'%Y%m%d')-${{ github.run_number }}" >> $GITHUB_ENV
 
     # 3. Log in en DockerHub
@@ -33,38 +31,34 @@ jobs:
     # 4. Construir y subir la imagen Docker a DockerHub
     - name: Build and push Docker image
       run: |
-        # Construir las imágenes con múltiples etiquetas
-        docker build . --file Dockerfile --tag ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:${{ env.version_tag }} --tag ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest 
-        
-        # Subir ambas etiquetas al DockerHub
+        docker build . --file Dockerfile --tag ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:${{ env.version_tag }} --tag ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
         docker push ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:${{ env.version_tag }}
         docker push ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
-        
 
   deploy:
-    name: Deploy to EC2
+    name: Deploy to QA Instances
     runs-on: ubuntu-latest
     needs: build-and-push
+    strategy:
+      matrix:
+        instance: 
+          - { host: ${{ secrets.QA_HOST_1 }}, name: qa-instance-1 }
+          - { host: ${{ secrets.QA_HOST_2 }}, name: qa-instance-2 }
 
     steps:
-    # 1. Conectar a EC2 y desplegar la aplicación
-    - name: Deploy to EC2
+    # 1. Conectar a cada instancia QA y desplegar la aplicación
+    - name: Deploy to QA - ${{ matrix.instance.name }}
       uses: appleboy/ssh-action@v0.1.6
       with:
-        host: ${{ secrets.EC2_HOST }}
+        host: ${{ matrix.instance.host }}
         username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
+        key: ${{ secrets.EC2_SSH_KEY_1 }}
         port: 22
         script: |
-          # Actualizar y configurar Docker
           sudo yum update -y
           sudo yum install -y docker
           sudo service docker start
           sudo usermod -a -G docker ec2-user
-
-          # Descargar la imagen Docker desde DockerHub
-          sudo docker pull millanda29/tercera-pagina:latest
-
-          # Detener cualquier contenedor existente y desplegar el nuevo
+          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
           sudo docker ps -q --filter "name=tercera-pagina" | grep -q . && docker stop tercera-pagina && docker rm tercera-pagina || true
-          sudo docker run -d --name tercera-pagina -p 80:80 millanda29/tercera-pagina:latest
+          sudo docker run -d --name tercera-pagina -p 80:80 ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
