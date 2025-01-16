@@ -41,9 +41,11 @@ jobs:
     needs: build-and-push
     strategy:
       matrix:
-        instance: 
-          - { host: ${{ secrets.QA_HOST_1 }}, name: qa-instance-1 }
-          - { host: ${{ secrets.QA_HOST_2 }}, name: qa-instance-2 }
+        instance:
+          - host: ${{ secrets.QA_HOST_1 }}
+            name: qa-instance-1
+          - host: ${{ secrets.QA_HOST_2 }}
+            name: qa-instance-2
 
     steps:
     # 1. Conectar a cada instancia QA y desplegar la aplicación
@@ -55,10 +57,16 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY_1 }}
         port: 22
         script: |
+          # Actualizar el sistema y configurar Docker
           sudo yum update -y
           sudo yum install -y docker
           sudo service docker start
           sudo usermod -a -G docker ec2-user
+          
+          # Descargar la nueva imagen y detener/eliminar el contenedor actual
           sudo docker pull ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
-          sudo docker ps -q --filter "name=tercera-pagina" | grep -q . && docker stop tercera-pagina && docker rm tercera-pagina || true
+          sudo docker ps -q --filter "name=tercera-pagina" | grep -q . && \
+            sudo docker stop tercera-pagina && sudo docker rm tercera-pagina || true
+          
+          # Ejecutar el nuevo contenedor
           sudo docker run -d --name tercera-pagina -p 80:80 ${{ secrets.DOCKER_USERNAME }}/tercera-pagina:latest
