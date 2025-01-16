@@ -21,7 +21,15 @@ jobs:
             name: instance-4
 
     steps:
-    # 1. Conectar a cada instancia EC2 y desplegar la aplicación
+    # Verificar que los secretos requeridos están configurados
+    - name: Validate required secrets
+      run: |
+        if [[ -z "${{ secrets.EC2_HOST_1 }}" || -z "${{ secrets.EC2_USER }}" || -z "${{ secrets.EC2_SSH_KEY_2 }}" || -z "${{ secrets.DOCKER_USERNAME }}" ]]; then
+          echo "Error: Missing one or more required secrets."
+          exit 1
+        fi
+
+    # Conectar a cada instancia EC2 y desplegar la aplicación
     - name: Deploy to EC2 - ${{ matrix.instance.name }}
       uses: appleboy/ssh-action@v0.1.6
       with:
